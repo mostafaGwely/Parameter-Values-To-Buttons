@@ -1,48 +1,47 @@
-/* global tableau Vue */
+"use strict";
 
-let app = new Vue({
-    el: "#app",
-    data: {
-      sourceParam: null,
-      params: [],
-      values: []
-    },
-    methods: {
-      save: async function() {
-        tableau.extensions.settings.set("sourceParam", this.sourceParam);
-        await tableau.extensions.settings.saveAsync();
-        tableau.extensions.ui.closeDialog("");
-      },
-      getParams: async function() {
-        const params = await
-          tableau.extensions.dashboardContent.dashboard.getParametersAsync();
-        this.params = [...params.map(p => p.name)];
-  
-        const settings = tableau.extensions.settings.getAll();
-        this.sourceParam = params.find(
-          p => p.name === settings.sourceParam
-        )
-          ? settings.sourceParam
-          : "";
-      },
-      getFields: async function(sourceParamName) {
-        const params = await
-          tableau.extensions.dashboardContent.dashboard.getParametersAsync();
-        const param = params.find(p => p.name === sourceParamName);
-        const values = await param.allowableValues.allowableValues;
-        this.values = [...values.map(val => val.value)];
-        tableau.extensions.settings.set("values", this.values.join('&'));
-
-      }
-    },
-    watch: {
-      sourceParam: function(sourceParamName) {
-        this.getFields(sourceParamName);
-      }
-    },
-    created: async function() {
-      await tableau.extensions.initializeDialogAsync();
-      this.getParams();
-    }
+(function () {
+  $(document).ready(function () {
+    tableau.extensions.initializeDialogAsync().then(function (openPayload) {
+      buildDialog();
+    });
   });
-  
+
+  function buildDialog() {
+    let dashboard = tableau.extensions.dashboardContent.dashboard;
+    dashboard.getParametersAsync().then(function (ReturnedParameters) {
+      ReturnedParameters.forEach(function (arrayItem) {
+        const button = createItemList(arrayItem.name);
+        button.click(function (b) {
+          tableau.extensions.settings.set("paramName", arrayItem.name);
+          tableau.extensions.settings.set(
+            "paramValues",
+            arrayItem.allowableValues.allowableValues
+              .map((x) => x.value)
+              .join("$")
+          );
+          closeDialog();
+        });
+        $("#parametersList").append(button);
+      });
+    });
+  }
+
+  function createItemList(itemListTitle) {
+    return $(
+      `<button type="button" class="btn btn-outline-success item m-2" id="buttonValue${itemListTitle}  ">${itemListTitle}</button>`
+    );
+  }
+
+  function closeDialog() {
+    tableau.extensions.settings
+      .saveAsync()
+      .then((result) => {
+        tableau.extensions.ui.closeDialog("10");
+      })
+      .catch((error) => {
+        // ...
+        // ... code for error handling
+      });
+  }
+})();
